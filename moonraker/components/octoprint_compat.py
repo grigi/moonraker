@@ -27,6 +27,14 @@ class OctoprintCompat:
         self.server = config.get_server()
         self.software_version = config['system_args'].get('software_version')
 
+        # Webcam settings
+        self.webcam_enabled = config.getboolean('webcam_enabled', True)
+        self.webcam_stream_url = config.get(
+            'webcam_stream_url', '/webcam/?action=stream')
+        self.webcam_flip_h = config.getboolean('webcam_flip_h', True)
+        self.webcam_flip_v = config.getboolean('webcam_flip_v', True)
+        self.webcam_rotate90 = config.getboolean('webcam_rotate90', True)
+
         # Local variables
         self.klippy_apis = self.server.lookup_component('klippy_apis')
         self.heaters = {}
@@ -180,7 +188,7 @@ class OctoprintCompat:
         """
         Used to parse Octoprint capabilities
 
-        Hardcode capabilities to be basically there and use default
+        Hardcode capabilities to be basically there and use configurable
         fluid/mainsail webcam path.
         """
         return {
@@ -200,14 +208,12 @@ class OctoprintCompat:
                 'sdSupport': False,
                 'temperatureGraph': False
             },
-            # TODO: Get webcam settings from config file to allow user
-            #       to customise this.
             'webcam': {
-                'flipH': False,
-                'flipV': False,
-                'rotate90': False,
-                'streamUrl': '/webcam/?action=stream',
-                'webcamEnabled': True,
+                'flipH': self.webcam_flip_h,
+                'flipV': self.webcam_flip_v,
+                'rotate90': self.webcam_rotate90,
+                'streamUrl': self.webcam_stream_url,
+                'webcamEnabled': self.webcam_enabled,
             },
         }
 
