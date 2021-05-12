@@ -31,6 +31,7 @@ class OctoprintCompat:
         self.klippy_apis = self.server.lookup_component('klippy_apis')
         self.heaters = {}
         self.last_print_stats = {}
+        self.selected_filename = ''
 
         # Register status update event
         self.server.register_event_handler(
@@ -60,7 +61,8 @@ class OctoprintCompat:
         # Job operations
         self.server.register_endpoint(
             '/api/job', ['GET'], self._get_job, wrap_result=False)
-        # TODO: start/cancel/restart/pause jobs
+        self.server.register_endpoint(
+            '/api/job', ['POST'], self._post_job, wrap_result=False)
 
         # Printer operations
         self.server.register_endpoint(
@@ -229,6 +231,50 @@ class OctoprintCompat:
             },
             'state': self.printer_state()
         }
+
+    async def _post_job(self, web_request):
+        """
+        Get current job status
+        """
+        command = web_request.get('command', '')
+        fail = False
+
+        try:
+            if command == 'start':
+                # NOTE: Won't work until select file is implemented
+                if self.selected_filename:
+                    await self.start_print(self.selected_filename)
+                else:
+                    fail = True
+            elif command == 'cancel':
+                await self.klippy_apis.self.run_gcode("CANCEL_PRINT")
+            elif command == 'pause':
+                action = web_request.get('action', '')
+                if action == 'pause':
+                    await self.klippy_apis.run_gcode("PAUSE")
+                elif action == 'resume':
+                    await self.klippy_apis.run_gcode("RESUME")
+                elif action == 'toggle':
+                    state = self.printer_state()
+                    if state == 'Paused':
+                        await self.klippy_apis.run_gcode("RESUME")
+                    elif state == 'Printing':
+                        await self.klippy_apis.run_gcode("PAUSE")
+                    else:
+                        fail = True
+                else:
+                    fail = True
+            else:
+                fail = True
+        except self.server.error:
+            fail = True
+
+        # Any fail must be 409 Conflict
+        if fail:
+            raise self.server.error("Conflict", 409)
+
+        # Any success must be 204 No Content
+        raise self.server.error("No Content", 204)
 
     async def _get_printer(self, web_request):
         """
